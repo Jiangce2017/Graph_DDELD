@@ -6,13 +6,33 @@ import sklearn.metrics
 from torch_geometric.data import Data
 import torch.nn as nn
 from scipy.ndimage import gaussian_filter
+import csv
 
 #################################################
 #
 # Utilities
 #
 #################################################
-device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+
+class Logger(object):
+    def __init__(self, path, header):
+        self.log_file = open(path, 'a')
+        self.logger = csv.writer(self.log_file, delimiter='\t')
+
+        self.logger.writerow(header)
+        self.header = header
+
+    def __del(self):
+        self.log_file.close()
+
+    def log(self, values):
+        write_values = []
+        for col in self.header:
+            assert col in values
+            write_values.append(values[col])
+
+        self.logger.writerow(write_values)
+        self.log_file.flush()
 
 class MatReader(object):
     def __init__(self, file_path, to_torch=True, to_cuda=False, to_float=True):
@@ -129,6 +149,16 @@ class GaussianNormalizer(object):
     def cpu(self):
         self.mean = self.mean.cpu()
         self.std = self.std.cpu()
+
+    def to(self, device):
+        if torch.is_tensor(self.mean):
+            self.mean = self.mean.to(device)
+            self.std = self.std.to(device)
+        else:
+            self.mean = torch.from_numpy(self.mean).to(device)
+            self.std = torch.from_numpy(self.std).to(device)
+        return self
+
 
 class RangeNormalizer(object):
     def __init__(self, x, low=0.0, high=1.0):

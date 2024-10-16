@@ -3,7 +3,7 @@ from torch.nn import Parameter
 from torch_geometric.nn.conv import MessagePassing
 from torch_geometric.nn.inits import reset, uniform
 
-device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+#device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
 class NNConv(MessagePassing):
     r"""The continuous kernel-based convolutional operator from the
@@ -172,7 +172,9 @@ class NNConv_Gaussian(MessagePassing):
         return self.propagate(edge_index, x=x, pseudo=pseudo)
 
     def message(self, x_j, pseudo):
-        one = torch.ones(1).to(device)
+        one = x_j.new_empty(1)
+        one.fill_(1)
+        #one = torch.ones(1).to(device)
         a = 1 / torch.sqrt(torch.abs(pseudo[:,1] * pseudo[:,2]))
         # print('a',torch.isnan(a))
         b = torch.exp(-1 * (pseudo[:, 0] ** 2).view(-1, 1) / (self.nn(one) ** 2).view(1, -1))

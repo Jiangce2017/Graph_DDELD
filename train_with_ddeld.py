@@ -60,7 +60,6 @@ ker_width = 128 #1024
 depth = 4 #6
 edge_features = 6
 node_features = 6
-
 epochs = 200
 learning_rate = 0.0001
 scheduler_step = 50
@@ -341,14 +340,14 @@ ttest16 = np.zeros((epochs,))
 ttest31 = np.zeros((epochs,))
 ttest61 = np.zeros((epochs,))
 
-scope = 'local'
+scope = 'global'
 
 if scope == 'local':
     for ep in range(epochs):
         t1 = default_timer()
         train_mse = 0.0
         train_l2 = 0.0
-        num_subgraph = 0
+        num_sample = 0
         for i_batch, data_batch in enumerate(train_loader):
             x, edge_index, edge_attr = data_batch.x, data_batch.edge_index, data_batch.edge_attr
             true_y = data_batch.y.to(device)
@@ -382,22 +381,23 @@ if scope == 'local':
                 pred_y[batch_neighbor_centers] = pred_y_centers
 
                 optimizer.step()
-                train_mse += mse.item()
-                train_l2 += l2.item()
-                num_subgraph += 1
                 #print("ep: {}, i_batch: {}, i_subgraph_batch: {}, mes: {}, loss: {}, l2: {}".format(ep,i_batch, i_subgraph_batch, mse.item(), loss.item(), l2.item()))
             global_mse = F.mse_loss(pred_y.view(-1, 1), true_y.view(-1,1))
             global_loss = torch.norm(pred_y.view(-1) - true_y.view(-1),1)
             global_l2 = myloss(u_normalizer.decode(pred_y.view(real_num_batch,-1)), u_normalizer.decode(true_y.view(real_num_batch, -1)))
-            print("ep: {}, i_batch: {}, global_mse: {}".format(ep, i_batch, global_mse))
+            print("ep: {}, i_batch: {}, mse: {}".format(ep, i_batch, global_mse))
+            num_sample += 1
+            train_mse += global_mse
         scheduler.step()
+        train_mse /= num_sample
+        print("One epoch finishes. ep: {}, average mse: {}".format(ep, train_mse))
 
 elif scope == 'global':
-    for ep in range(1000):
+    for ep in range(100):
         t1 = default_timer()
         train_mse = 0.0
         train_l2 = 0.0
-        num_subgraph = 0
+        num_sample = 0
         for i_batch, data_batch in enumerate(train_loader):
             real_num_batch = data_batch.batch[-1].item()+1
             x, edge_index, edge_attr,true_y = data_batch.x, data_batch.edge_index, data_batch.edge_attr,data_batch.y
@@ -405,16 +405,21 @@ elif scope == 'global':
             edge_index = edge_index.to(device)
             edge_attr = edge_attr.to(device)
             true_y = true_y.to(device)
+            optimizer.zero_grad()
             pred_y = model(x, edge_index, edge_attr)
             mse = F.mse_loss(pred_y.view(-1, 1), true_y.view(-1,1))
             # mse.backward() 
             loss = torch.norm(pred_y.view(-1) - true_y.view(-1),1)
             loss.backward()
-
+            optimizer.step()
             l2 = myloss(u_normalizer.decode(pred_y.view(real_num_batch,-1)), u_normalizer.decode(true_y.view(real_num_batch, -1)))
             # l2.backward()
-            print("ep: {}, i_batch: {}, global_mse: {}".format(ep, i_batch, mse))
+            #print("ep: {}, i_batch: {}, mse: {}".format(ep, i_batch, mse))
+            num_sample += 1
+            train_mse += mse
         scheduler.step()
+        train_mse /= num_sample
+        print("One epoch finishes. ep: {}, average mse: {}".format(ep, train_mse))
 
     # t2 = default_timer()
 

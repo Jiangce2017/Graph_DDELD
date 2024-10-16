@@ -37,7 +37,7 @@ ntrain = 100
 ntest = 40
 
 batch_size = 1
-batch_size2 = 2
+batch_size2 = 1
 width = 64
 ker_width = 1024
 depth = 6
